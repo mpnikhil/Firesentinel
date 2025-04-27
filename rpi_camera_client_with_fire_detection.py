@@ -229,13 +229,30 @@ class CameraSensorMonitor:
             img = Image.open(image_path).convert('RGB')
             img = img.resize((input_size, input_size))
             
-            # Convert to numpy array and keep as uint8 (0-255)
-            img_array = np.array(img, dtype=np.uint8)
-            img_array = np.expand_dims(img_array, axis=0)
-            
-            # Get input and output details
+            # Get input details to determine required data type and quantization
             input_details = fire_detector.get_input_details()
             output_details = fire_detector.get_output_details()
+            
+            # Check input type - quantized models typically use uint8, float models use float32
+            input_dtype = input_details[0]['dtype']
+            
+            # Process input according to the model's expected type
+            if input_dtype == np.uint8:
+                # For quantized model - keep as uint8
+                img_array = np.array(img, dtype=np.uint8)
+                logger.info("Using quantized uint8 input")
+            else:
+                # For float model - normalize to 0-1 range
+                img_array = np.array(img, dtype=np.float32) / 255.0
+                logger.info("Using normalized float32 input")
+                
+            img_array = np.expand_dims(img_array, axis=0)
+            
+            # Log input details for debugging
+            logger.info(f"Input details: shape={input_details[0]['shape']}, type={input_details[0]['dtype']}")
+            logger.info(f"Input quantization: {input_details[0]['quantization']}")
+            logger.info(f"Output details: shape={output_details[0]['shape']}, type={output_details[0]['dtype']}")
+            logger.info(f"Output quantization: {output_details[0]['quantization']}")
             
             # Set input tensor
             fire_detector.set_tensor(input_details[0]['index'], img_array)
@@ -247,16 +264,18 @@ class CameraSensorMonitor:
             
             # Get output tensor
             output = fire_detector.get_tensor(output_details[0]['index'])
+            logger.info(f"Raw output: {output[0][0]}, dtype: {output.dtype}")
             
-            # Convert quantized output to probability (if using uint8 quantization)
-            if output.dtype == np.uint8:
+            # Handle quantized output if needed
+            if output_details[0]['quantization'][0] != 0.0:  # Check if quantized (has non-zero scale)
                 # Get scale and zero point from output details
-                scale = output_details[0]['quantization'][0]
-                zero_point = output_details[0]['quantization'][1]
+                scale, zero_point = output_details[0]['quantization']
                 # Dequantize the output
-                score = (output[0][0] - zero_point) * scale
+                score = (float(output[0][0]) - zero_point) * scale
+                logger.info(f"Dequantized output: {score} (scale={scale}, zero_point={zero_point})")
             else:
                 score = float(output[0][0])
+                logger.info(f"Using raw float output: {score}")
             
             # Determine if fire is detected based on threshold
             is_fire_detected = score >= FIRE_DETECTION_THRESHOLD
@@ -475,13 +494,30 @@ def test_fire_detection(image_path=None):
         img = Image.open(image_path).convert('RGB')
         img = img.resize((input_size, input_size))
         
-        # Convert to numpy array as uint8 (0-255)
-        img_array = np.array(img, dtype=np.uint8)
-        img_array = np.expand_dims(img_array, axis=0)
-        
-        # Get input and output details
+        # Get input details to determine required data type and quantization
         input_details = fire_detector.get_input_details()
         output_details = fire_detector.get_output_details()
+        
+        # Check input type - quantized models typically use uint8, float models use float32
+        input_dtype = input_details[0]['dtype']
+        
+        # Process input according to the model's expected type
+        if input_dtype == np.uint8:
+            # For quantized model - keep as uint8
+            img_array = np.array(img, dtype=np.uint8)
+            logger.info("Using quantized uint8 input")
+        else:
+            # For float model - normalize to 0-1 range
+            img_array = np.array(img, dtype=np.float32) / 255.0
+            logger.info("Using normalized float32 input")
+            
+        img_array = np.expand_dims(img_array, axis=0)
+        
+        # Log input and output details for debugging
+        logger.info(f"Input details: shape={input_details[0]['shape']}, type={input_details[0]['dtype']}")
+        logger.info(f"Input quantization: {input_details[0]['quantization']}")
+        logger.info(f"Output details: shape={output_details[0]['shape']}, type={output_details[0]['dtype']}")
+        logger.info(f"Output quantization: {output_details[0]['quantization']}")
         
         # Set input tensor
         fire_detector.set_tensor(input_details[0]['index'], img_array)
@@ -493,16 +529,18 @@ def test_fire_detection(image_path=None):
         
         # Get output tensor
         output = fire_detector.get_tensor(output_details[0]['index'])
+        logger.info(f"Raw output: {output[0][0]}, dtype: {output.dtype}")
         
-        # Convert quantized output to probability
-        if output.dtype == np.uint8:
+        # Handle quantized output if needed
+        if output_details[0]['quantization'][0] != 0.0:  # Check if quantized (has non-zero scale)
             # Get scale and zero point from output details
-            scale = output_details[0]['quantization'][0]
-            zero_point = output_details[0]['quantization'][1]
+            scale, zero_point = output_details[0]['quantization']
             # Dequantize the output
-            score = (output[0][0] - zero_point) * scale
+            score = (float(output[0][0]) - zero_point) * scale
+            logger.info(f"Dequantized output: {score} (scale={scale}, zero_point={zero_point})")
         else:
             score = float(output[0][0])
+            logger.info(f"Using raw float output: {score}")
         
         # Determine if fire is detected based on threshold
         is_fire_detected = score >= FIRE_DETECTION_THRESHOLD
