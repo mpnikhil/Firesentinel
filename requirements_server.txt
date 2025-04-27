@@ -1,0 +1,6 @@
+# Requirements for FireSentinel macbook server
+flask>=2.0.1
+requests>=2.28.1
+Pillow>=9.2.0
+numpy>=1.19.5
+pathlib>=1.0.1 
