@@ -1,0 +1,113 @@
+# FireSentinel: Edge-AI Wildfire Detection System for Power Line Monitoring
+
+## Project Overview
+A practical, one-day hackathon project focusing on early wildfire detection near power infrastructure using environmental sensors, edge ML, and vision AI to create a complete detection and alert system.
+
+## System Architecture
+
+### 1. Edge Detection (Raspberry Pi 5)
+- Environmental monitoring with Enviro+ BME280 sensor
+- Edge ML inference for initial threat detection
+- Camera-based visual confirmation when threshold exceeded
+- Local data processing to minimize bandwidth requirements
+
+### 2. Backend Analysis
+- Server receiving sensor data and images from edge nodes
+- Vision Language Model (VLM) for advanced image analysis
+- Combined sensor + visual data analysis for higher accuracy
+- Decision engine for alert triggering
+
+### 3. Alert System
+- Voice API integration (Eleven Labs) for emergency notifications
+- Visualization dashboard for monitoring system status
+- Alert history and management interface
+
+## Implementation Phases (1-Day Timeline)
+
+### Phase 1: Edge Device Setup (2.5 hours)
+- Configure Raspberry Pi with sensor and camera
+- Implement environmental data collection pipeline
+- Set up thresholds for initial detection triggers
+- Configure camera to capture on-demand images
+
+### Phase 2: ML Model Integration (2 hours)
+- Download pre-trained TFLite model for sensor data analysis
+- Implement inference pipeline on Raspberry Pi
+- Set up confidence scoring system
+- Configure trigger thresholds for camera activation
+
+### Phase 3: Server Backend (2 hours)
+- Create lightweight server to receive data
+- Implement image storage and management
+- Integrate with open VLM service or simulate VLM responses
+- Build decision engine combining sensor and visual data
+
+### Phase 4: Alert System (2 hours)
+- Integrate Eleven Labs API for voice notifications
+- Create alert message templates for different threat levels
+- Build simple web dashboard for visualization
+- Implement alert logging system
+
+### Phase 5: Integration and Testing (1.5 hours)
+- Connect all system components
+- Test with simulated fire conditions
+- Refine thresholds and decision logic
+- Prepare demonstration materials
+
+## Demo Scenario
+
+1. **Normal Operation**
+   - Show system monitoring environmental conditions
+   - Display baseline readings on dashboard
+   - Explain edge ML detection approach
+
+2. **Threat Detection**
+   - Introduce controlled smoke/heat source near sensor
+   - Show real-time threshold crossing
+   - Demonstrate camera activation
+   - Display image transfer to server
+
+3. **Analysis & Alert**
+   - Show VLM analysis of captured image
+   - Demonstrate decision process combining data sources
+   - Trigger voice alert notification
+   - Display alert on dashboard
+   
+4. **Resolution**
+   - Show system returning to normal state
+   - Display alert history
+   - Explain potential for integration with emergency services
+
+## Key Technical Components
+
+1. **Edge ML Model**:
+   - Simple classifier or anomaly detector for environmental data
+   - Pre-trained and converted to TFLite for edge deployment
+   - Focus on low false positive rate
+
+2. **Data Pipeline**:
+   - JSON-formatted sensor data for efficient transmission
+   - Image compression for bandwidth optimization
+   - WebSocket or REST API for communication
+
+3. **Decision Engine**:
+   - Weighted scoring system combining multiple inputs
+   - Configurable thresholds for different alert levels
+   - Confidence scoring to reduce false alerts
+
+4. **Visualization**:
+   - Real-time sensor reading displays
+   - Threat level indicator
+   - Image display when alerts triggered
+   - Map showing simulated deployment locations
+
+## Adaptation for Limited Resources
+
+Since we only have one day and limited hardware, we'll focus on a complete end-to-end demo rather than optimizing each component:
+
+- Use simulated data to supplement real sensor readings when needed
+- Focus on the integration of components rather than perfect accuracy
+- Use lightweight alternatives where appropriate (e.g., rule-based detection if ML model training is too time-consuming)
+- Prepare fallback options for demo scenarios
+
+This plan creates a technically sound, practical system focusing on the national security application of protecting critical power infrastructure from wildfire threats, while remaining achievable within a one-day hackathon timeframe.

@@ -1,0 +1,17 @@
+numpy>=1.19.5
+pandas>=1.3.0
+scikit-learn>=1.0.0
+joblib>=1.1.0
+# GPIO control library for Raspberry Pi 5
+gpiod>=1.5.1
+# I2C communication
+smbus2>=0.4.1
+# Enviro+ sensors support
+# May need special installation from Pimoroni repository
+# See: https://github.com/pimoroni/enviroplus
+enviroplus
+# For logging and utilities
+pathlib>=1.0.1
+
+# Note: Before using pip with this file, also install system packages:
+# sudo apt install python3-gpiod libgpiod-dev libgpiod2 gpiod 
