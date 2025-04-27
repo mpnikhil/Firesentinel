@@ -1,0 +1,9 @@
+# Core dependencies for wildfire detection on Raspberry Pi 5
+numpy>=1.19.5,<1.24.0
+pillow>=9.0.0
+opencv-python>=4.5.0
+tflite-runtime>=2.5.0
+
+# Optional: for improved performance
+# RPi.GPIO>=0.7.0  # If using GPIO pins for camera control, LEDs, etc.
+# picamera2>=0.3.8  # If using the Raspberry Pi camera
