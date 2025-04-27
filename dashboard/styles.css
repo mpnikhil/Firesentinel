@@ -4,141 +4,195 @@
     box-sizing: border-box;
 }
 
-body {
-    font-family: Arial, sans-serif;
-    background-color: #121212;
-    color: #ffffff;
-    height: 100vh;
-    width: 100vw;
+body, html {
+    margin: 0;
+    padding: 0;
+    font-family: 'Arial', sans-serif;
+    background-color: #1a1a1a;
+    color: #f0f0f0;
+    height: 100%;
     overflow: hidden;
 }
 
 .dashboard {
-    display: grid;
-    grid-template-columns: 1fr 300px;
-    grid-template-rows: 1fr 200px;
+    display: flex;
+    flex-direction: column;
     height: 100vh;
-    width: 100vw;
-    grid-template-areas:
-        "map right"
-        "bottom right";
+    position: relative;
 }
 
 .map-container {
-    grid-area: map;
+    flex: 1;
     position: relative;
-    background-color: #222;
+    overflow: hidden;
 }
 
 #map {
     position: absolute;
+    top: 0;
+    bottom: 0;
     width: 100%;
-    height: 100%;
 }
 
 #map-overlay {
     position: absolute;
+    top: 0;
+    bottom: 0;
     width: 100%;
-    height: 100%;
     pointer-events: none;
-    z-index: 10;
 }
 
 .right-panel {
-    grid-area: right;
-    background-color: #2a2a2a;
-    border-left: 1px solid #444;
-    padding: 15px;
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 300px;
+    background-color: rgba(30, 30, 30, 0.9);
+    border-radius: 4px;
+    padding: 10px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
     overflow-y: auto;
+    max-height: calc(100vh - 100px);
 }
 
-.right-panel h3 {
+.bottom-panel {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: rgba(30, 30, 30, 0.9);
+    border-radius: 4px;
+    padding: 10px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+    width: 80%;
+    max-width: 600px;
+}
+
+h3, h4 {
+    margin-top: 0;
     margin-bottom: 10px;
-    color: #ddd;
+    color: #4CAF50;
 }
 
-.right-panel h4 {
-    margin-bottom: 8px;
-    color: #ccc;
+.control-group, .new-controls {
+    margin-bottom: 15px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid #444;
 }
 
-.control-group {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-}
-
-.control-group button {
-    padding: 8px 16px;
+button {
     background-color: #4CAF50;
     color: white;
     border: none;
     border-radius: 4px;
+    padding: 8px 12px;
+    margin-right: 8px;
+    margin-bottom: 8px;
     cursor: pointer;
+    font-size: 14px;
+    transition: all 0.2s;
 }
 
-.control-group button:hover {
+button:hover {
     background-color: #45a049;
 }
 
-.control-group button:disabled {
-    background-color: #666;
+button:disabled {
+    background-color: #cccccc;
+    color: #888888;
     cursor: not-allowed;
 }
 
-.control-group button#draw-point-btn.active {
-    background-color: #ff6b6b;
+button.active {
+    background-color: #ff5722;
 }
 
-.simulation-stats {
-    background-color: #333;
-    padding: 10px;
-    border-radius: 4px;
+.simulation-stats, .legend {
+    margin-bottom: 15px;
 }
 
-.legend {
-    background-color: #333;
-    padding: 10px;
-    border-radius: 4px;
-}
-
-#fuel-legend {
+.address-input-container {
     display: flex;
-    flex-direction: column;
-    gap: 5px;
+    width: 100%;
 }
 
-.legend-title {
-    color: #eee;
-    font-size: 1.1em;
-    margin-bottom: 8px;
+#address-input {
+    flex: 1;
+    padding: 8px;
+    border: none;
+    border-radius: 4px 0 0 4px;
+    background-color: #333;
+    color: #fff;
+}
+
+#submit-address {
+    border-radius: 0 4px 4px 0;
+    margin-right: 0;
+}
+
+#status-message {
+    margin-top: 10px;
+    font-size: 14px;
     text-align: center;
 }
 
 .legend-item {
     display: flex;
-    align-items: flex-start;
-    gap: 8px;
-    margin-bottom: 6px;
+    align-items: center;
+    margin-bottom: 5px;
 }
 
 .legend-color {
     width: 15px;
     height: 15px;
-    border-radius: 3px;
-    flex-shrink: 0;
-    margin-top: 3px;
+    margin-right: 8px;
+    border-radius: 2px;
 }
 
 .legend-label {
+    font-size: 12px;
+}
+
+.location-circle, .fire-point {
+    transition: all 0.2s;
+}
+
+.fire-ember {
+    transition: all 0.5s;
+}
+
+/* New styles for boundary drawing and cameras */
+.boundary-point {
+    transition: all 0.2s;
+}
+
+.boundary-line {
+    transition: all 0.1s;
+}
+
+.camera-container {
+    transition: all 0.2s;
+}
+
+.camera-coverage {
+    transition: all 0.5s;
+}
+
+.stat-line {
     display: flex;
-    flex-direction: column;
-    font-size: 0.9em;
-    color: #eee;
-    line-height: 1.3;
+    justify-content: space-between;
+    margin-bottom: 5px;
+    font-size: 14px;
+}
+
+#boundary-area {
+    font-weight: bold;
+    color: #4287f5;
+}
+
+.camera-id {
+    transition: all 0.2s;
+    font-size: 12px;
 }
 
 .fire-point {
@@ -173,18 +227,6 @@ body {
     box-shadow: 0 0 10px rgba(255, 0, 0, 0.8);
 }
 
-.fire-ember {
-    background-color: rgba(255, 78, 0, 0.6);
-    border: none;
-    position: absolute;
-    transform: translate(-50%, -50%);
-    z-index: 94;
-    border-radius: 50%;
-    opacity: 0.7;
-    box-shadow: 0 0 8px rgba(255, 120, 0, 0.5);
-    transition: width 1.5s ease-out, height 1.5s ease-out;
-}
-
 .fire-cell {
     background-color: rgba(255, 78, 0, 0.5);
     border: none;
@@ -206,47 +248,4 @@ body {
     100% {
         box-shadow: 0 0 0 0 rgba(76, 175, 80, 0);
     }
-}
-
-.bottom-panel {
-    grid-area: bottom;
-    background-color: #2a2a2a;
-    border-top: 1px solid #444;
-    padding: 15px;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-}
-
-.address-input-container {
-    display: flex;
-    gap: 10px;
-}
-
-#address-input {
-    flex: 1;
-    padding: 8px 12px;
-    border: 1px solid #444;
-    background-color: #333;
-    color: white;
-    border-radius: 4px;
-}
-
-#submit-address {
-    padding: 8px 16px;
-    background-color: #4CAF50;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-}
-
-#submit-address:hover {
-    background-color: #45a049;
-}
-
-#status-message {
-    font-size: 14px;
-    color: #ccc;
-    min-height: 20px;
 } 

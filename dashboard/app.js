@@ -30,17 +30,29 @@ document.addEventListener('DOMContentLoaded', () => {
     let firePoints = [];
     let fuelModelData = null;
 
+    // Boundary area and camera variables
+    let boundaryDrawingMode = false;
+    let boundaryPoints = [];
+    let boundaryLines = [];
+    let boundaryArea = null;
+    let camerasAdded = false;
+    let cameraMarkers = [];
+    
     // Get DOM elements
     const addressInput = document.getElementById('address-input');
     const submitBtn = document.getElementById('submit-address');
     const statusMessage = document.getElementById('status-message');
     const mapOverlay = document.getElementById('map-overlay');
+    const drawBoundaryBtn = document.getElementById('draw-boundary-btn');
+    const addCamerasBtn = document.getElementById('add-cameras-btn');
+    const boundaryAreaText = document.getElementById('boundary-area');
 
     // Add map loading event
     map.on('load', () => {
         console.log('Map loaded successfully');
         initializeAddressSearch();
         initializeWildfireSimulation();
+        initializeBoundaryAndCameras();
         loadFuelModelLayer();
     });
 
@@ -453,7 +465,143 @@ document.addEventListener('DOMContentLoaded', () => {
             // Disable start simulation button until new point is drawn
             startSimulationBtn.disabled = true;
             
+            // Also reset boundary and cameras
+            resetBoundaryAndCameras();
+            
             setStatusMessage('Simulation reset', 'info');
+        });
+    }
+    
+    // Initialize boundary drawing and camera controls
+    function initializeBoundaryAndCameras() {
+        // Event listener for draw boundary button
+        drawBoundaryBtn.addEventListener('click', () => {
+            boundaryDrawingMode = !boundaryDrawingMode;
+            
+            if (boundaryDrawingMode) {
+                // Clear any existing boundary
+                clearBoundary();
+                
+                // Remove any existing complete button
+                const existingCompleteBtn = document.getElementById('complete-boundary-btn');
+                if (existingCompleteBtn) {
+                    existingCompleteBtn.remove();
+                }
+                
+                drawBoundaryBtn.classList.add('active');
+                setStatusMessage('Click on the map to draw boundary points. Click near the first point to complete.', 'info');
+            } else {
+                drawBoundaryBtn.classList.remove('active');
+                setStatusMessage('Boundary drawing mode disabled', 'info');
+            }
+        });
+        
+        // Add "Complete Boundary" button functionality
+        const showCompleteButton = () => {
+            // Check if we have enough points and if the button doesn't already exist
+            if (boundaryPoints.length >= 3 && !document.getElementById('complete-boundary-btn')) {
+                const completeBtn = document.createElement('button');
+                completeBtn.id = 'complete-boundary-btn';
+                completeBtn.textContent = 'Complete Boundary';
+                completeBtn.style.backgroundColor = '#FF9800';
+                
+                completeBtn.addEventListener('click', () => {
+                    completeBoundary();
+                });
+                
+                // Insert after the draw boundary button
+                const container = document.querySelector('.new-controls');
+                container.insertBefore(completeBtn, addCamerasBtn);
+            }
+        };
+        
+        // Listen for map clicks to show the complete button when appropriate
+        map.on('click', () => {
+            if (boundaryDrawingMode) {
+                setTimeout(showCompleteButton, 100); // Short delay to ensure points array is updated
+            }
+        });
+        
+        // Event listener for add cameras button
+        addCamerasBtn.addEventListener('click', () => {
+            if (!boundaryArea) {
+                setStatusMessage('Draw a boundary area first', 'error');
+                return;
+            }
+            
+            addRandomCameras();
+            addCamerasBtn.disabled = true;
+        });
+        
+        // Map click handler for boundary drawing
+        map.on('click', (e) => {
+            if (!boundaryDrawingMode) return;
+            
+            const coordinates = [e.lngLat.lng, e.lngLat.lat];
+            
+            // If clicked near the first point and we have at least 3 points, complete the polygon
+            if (boundaryPoints.length >= 3) {
+                const firstPoint = boundaryPoints[0];
+                const distance = calculateDistance(coordinates, firstPoint);
+                
+                // Increased tolerance to make it easier to close
+                if (distance < 0.002) { // ~200 meters at equator, was 0.0005
+                    completeBoundary();
+                    return;
+                }
+            }
+            
+            // Add the point to our boundary
+            addBoundaryPoint(coordinates);
+            
+            // If we have at least two points, draw a line
+            if (boundaryPoints.length >= 2) {
+                const lastIndex = boundaryPoints.length - 1;
+                drawBoundaryLine(boundaryPoints[lastIndex-1], boundaryPoints[lastIndex]);
+            }
+        });
+        
+        // Add hover effect to help with closing the boundary
+        map.on('mousemove', (e) => {
+            if (!boundaryDrawingMode || boundaryPoints.length < 3) return;
+            
+            const coordinates = [e.lngLat.lng, e.lngLat.lat];
+            const firstPoint = boundaryPoints[0];
+            const distance = calculateDistance(coordinates, firstPoint);
+            
+            // Check if near the first point
+            if (distance < 0.002) { // Same tolerance as click handler
+                // Highlight the first point to indicate it can be clicked to close
+                const firstPointElement = mapOverlay.querySelector('.boundary-point');
+                if (firstPointElement) {
+                    firstPointElement.style.backgroundColor = '#FF9800';
+                    firstPointElement.style.width = '14px';
+                    firstPointElement.style.height = '14px';
+                    firstPointElement.style.boxShadow = '0 0 10px rgba(255, 152, 0, 0.8)';
+                    
+                    // Set the cursor to pointer
+                    map.getCanvas().style.cursor = 'pointer';
+                    
+                    // Add temporary closing line visualization
+                    showClosingLine(boundaryPoints[boundaryPoints.length - 1], firstPoint);
+                }
+            } else {
+                // Reset the styling of the first point
+                const firstPointElement = mapOverlay.querySelector('.boundary-point');
+                if (firstPointElement) {
+                    firstPointElement.style.backgroundColor = '#4287f5';
+                    firstPointElement.style.width = '10px';
+                    firstPointElement.style.height = '10px';
+                    firstPointElement.style.boxShadow = 'none';
+                    
+                    // Reset cursor
+                    map.getCanvas().style.cursor = '';
+                    
+                    // Remove temporary closing line
+                    const tempLine = mapOverlay.querySelector('.temp-closing-line');
+                    if (tempLine) tempLine.remove();
+                }
+            }
         });
     }
     
@@ -1004,5 +1152,450 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Reset simulation data display
         document.getElementById('simulation-data').innerHTML = '<p>No active simulation</p>';
+    }
+    
+    // Add a boundary point to the map
+    function addBoundaryPoint(coordinates) {
+        // Create a boundary point element
+        const point = document.createElement('div');
+        point.className = 'boundary-point';
+        point.style.position = 'absolute';
+        point.style.width = '10px';
+        point.style.height = '10px';
+        point.style.backgroundColor = '#4287f5';
+        point.style.borderRadius = '50%';
+        point.style.border = '2px solid white';
+        point.style.transform = 'translate(-50%, -50%)';
+        point.style.zIndex = '200';
+        
+        // Add to map overlay
+        mapOverlay.appendChild(point);
+        
+        // Position the point
+        const pixels = map.project(coordinates);
+        point.style.left = `${pixels.x}px`;
+        point.style.top = `${pixels.y}px`;
+        
+        // Store the boundary point
+        boundaryPoints.push(coordinates);
+        
+        // Update point position on map move
+        map.on('move', () => {
+            const updatedPixels = map.project(coordinates);
+            point.style.left = `${updatedPixels.x}px`;
+            point.style.top = `${updatedPixels.y}px`;
+        });
+        
+        return {
+            element: point,
+            coordinates: coordinates
+        };
+    }
+    
+    // Draw a line between two boundary points
+    function drawBoundaryLine(from, to) {
+        // Create the line container
+        const line = document.createElement('div');
+        line.className = 'boundary-line';
+        line.style.position = 'absolute';
+        line.style.zIndex = '190';
+        
+        // Add to map overlay
+        mapOverlay.appendChild(line);
+        
+        // Position and style the line
+        updateBoundaryLine(line, from, to);
+        
+        // Store the line
+        boundaryLines.push({
+            element: line,
+            from: from,
+            to: to
+        });
+        
+        // Update line position on map move
+        map.on('move', () => {
+            updateBoundaryLine(line, from, to);
+        });
+    }
+    
+    // Update boundary line position and rotation
+    function updateBoundaryLine(lineElement, from, to) {
+        const fromPixels = map.project(from);
+        const toPixels = map.project(to);
+        
+        // Calculate line properties
+        const dx = toPixels.x - fromPixels.x;
+        const dy = toPixels.y - fromPixels.y;
+        const length = Math.sqrt(dx * dx + dy * dy);
+        const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+        
+        // Position at midpoint
+        lineElement.style.width = `${length}px`;
+        lineElement.style.height = '3px';
+        lineElement.style.backgroundColor = '#4287f5';
+        lineElement.style.left = `${fromPixels.x}px`;
+        lineElement.style.top = `${fromPixels.y}px`;
+        lineElement.style.transformOrigin = '0 0';
+        lineElement.style.transform = `rotate(${angle}deg)`;
+    }
+    
+    // Complete the boundary by connecting the last point to the first
+    function completeBoundary() {
+        if (boundaryPoints.length < 3) {
+            setStatusMessage('At least 3 points are needed for a boundary', 'error');
+            return;
+        }
+        
+        // Draw the closing line
+        const lastIndex = boundaryPoints.length - 1;
+        drawBoundaryLine(boundaryPoints[lastIndex], boundaryPoints[0]);
+        
+        // Exit drawing mode
+        boundaryDrawingMode = false;
+        drawBoundaryBtn.classList.remove('active');
+        
+        // Remove the temporary closing line if it exists
+        const tempLine = mapOverlay.querySelector('.temp-closing-line');
+        if (tempLine) tempLine.remove();
+        
+        // Remove the complete boundary button
+        const completeBtn = document.getElementById('complete-boundary-btn');
+        if (completeBtn) {
+            completeBtn.remove();
+        }
+        
+        // Reset cursor
+        map.getCanvas().style.cursor = '';
+        
+        // Create a polygon for area calculation
+        const polygon = boundaryPoints.map(point => [point[0], point[1]]);
+        boundaryArea = polygon;
+        
+        // Calculate and display the area
+        const areaInSqKm = calculatePolygonArea(polygon);
+        boundaryAreaText.textContent = `${areaInSqKm.toFixed(2)} sq km`;
+        
+        // Enable the add cameras button
+        addCamerasBtn.disabled = false;
+        
+        setStatusMessage(`Boundary area completed: ${areaInSqKm.toFixed(2)} sq km`, 'success');
+    }
+    
+    // Calculate the area of a polygon in square kilometers
+    function calculatePolygonArea(polygon) {
+        if (polygon.length < 3) return 0;
+        
+        let total = 0;
+        
+        for (let i = 0; i < polygon.length; i++) {
+            const addX = polygon[i][0];
+            const addY = polygon[i][1];
+            const nextIndex = (i + 1) % polygon.length;
+            const nextX = polygon[nextIndex][0];
+            const nextY = polygon[nextIndex][1];
+            
+            total += (addX * nextY - nextX * addY);
+        }
+        
+        // Area in square degrees, convert to square km
+        // This is a simplified approximation for small areas
+        const areaInSqDegrees = Math.abs(total) / 2;
+        
+        // Convert to square kilometers - approximation for mid-latitudes
+        // 1 degree of longitude at 38°N latitude is about 87.5 km
+        // 1 degree of latitude is about 111 km
+        const avgLatitude = polygon.reduce((sum, point) => sum + point[1], 0) / polygon.length;
+        const latitudeFactor = Math.cos(avgLatitude * Math.PI / 180);
+        const sqKmPerSqDegree = 111 * 111 * latitudeFactor;
+        
+        return areaInSqDegrees * sqKmPerSqDegree;
+    }
+    
+    // Clear the boundary and reset related variables
+    function clearBoundary() {
+        // Remove boundary points from DOM
+        const boundaryElements = mapOverlay.querySelectorAll('.boundary-point, .boundary-line, .temp-closing-line');
+        boundaryElements.forEach(element => {
+            if (element.parentNode) {
+                element.parentNode.removeChild(element);
+            }
+        });
+        
+        // Remove the complete boundary button if it exists
+        const completeBtn = document.getElementById('complete-boundary-btn');
+        if (completeBtn) {
+            completeBtn.remove();
+        }
+        
+        // Clear arrays
+        boundaryPoints = [];
+        boundaryLines = [];
+        boundaryArea = null;
+        
+        // Reset area text
+        boundaryAreaText.textContent = '0 sq km';
+        
+        // Disable add cameras button
+        addCamerasBtn.disabled = true;
+    }
+    
+    // Add random camera markers within the boundary
+    function addRandomCameras() {
+        if (!boundaryArea || boundaryArea.length < 3) {
+            return;
+        }
+        
+        // Clear any existing cameras
+        clearCameras();
+        
+        // Get boundary bounds
+        const bounds = getBoundaryBounds(boundaryArea);
+        
+        // Calculate the camera radius in km (1.2km - reduced from 12km)
+        const cameraRadiusKm = 1.2;
+        
+        // Add between 5-10 random cameras
+        const cameraCount = 5 + Math.floor(Math.random() * 6);
+        
+        // Make sure one camera has ID 3738
+        const specialIndex = Math.floor(Math.random() * cameraCount);
+        
+        for (let i = 0; i < cameraCount; i++) {
+            // Generate a random position within the bounds
+            let validPosition = false;
+            let coordinates;
+            let attempts = 0;
+            
+            // Try to find a valid position within the boundary
+            while (!validPosition && attempts < 20) {
+                const randomLng = bounds.minLng + Math.random() * (bounds.maxLng - bounds.minLng);
+                const randomLat = bounds.minLat + Math.random() * (bounds.maxLat - bounds.minLat);
+                coordinates = [randomLng, randomLat];
+                
+                if (isPointInPolygon(coordinates, boundaryArea)) {
+                    validPosition = true;
+                }
+                
+                attempts++;
+            }
+            
+            if (validPosition) {
+                // Generate ID (either 3738 for special index or random 4-digit number)
+                const cameraId = (i === specialIndex) ? '3738' : generateRandomId();
+                
+                // Add the camera with the assigned ID
+                addCameraMarker(coordinates, cameraId, cameraRadiusKm);
+            }
+        }
+        
+        camerasAdded = true;
+        setStatusMessage(`Added cameras with coverage radius of ${cameraRadiusKm}km`, 'success');
+    }
+    
+    // Add a camera marker with an ID label and coverage circle
+    function addCameraMarker(coordinates, id, radiusKm) {
+        // Create the camera container
+        const cameraContainer = document.createElement('div');
+        cameraContainer.className = 'camera-container';
+        cameraContainer.style.position = 'absolute';
+        cameraContainer.style.zIndex = '300';
+        cameraContainer.style.transform = 'translate(-50%, -50%)';
+        
+        // Create the camera marker 
+        const cameraMarker = document.createElement('div');
+        cameraMarker.className = 'camera-marker';
+        cameraMarker.style.width = '20px';
+        cameraMarker.style.height = '20px';
+        cameraMarker.style.backgroundColor = '#3498db';
+        cameraMarker.style.borderRadius = '50%';
+        cameraMarker.style.border = '2px solid white';
+        cameraMarker.style.boxShadow = '0 0 5px rgba(0, 0, 0, 0.5)';
+        
+        // Create the ID label
+        const idLabel = document.createElement('div');
+        idLabel.className = 'camera-id';
+        idLabel.textContent = id;
+        idLabel.style.position = 'absolute';
+        idLabel.style.top = '25px';
+        idLabel.style.left = '0';
+        idLabel.style.width = '100%';
+        idLabel.style.textAlign = 'center';
+        idLabel.style.color = 'white';
+        idLabel.style.fontWeight = 'bold';
+        idLabel.style.textShadow = '0 0 3px black';
+        
+        // Add components to container
+        cameraContainer.appendChild(cameraMarker);
+        cameraContainer.appendChild(idLabel);
+        
+        // Add to map overlay
+        mapOverlay.appendChild(cameraContainer);
+        
+        // Position the camera
+        const pixels = map.project(coordinates);
+        cameraContainer.style.left = `${pixels.x}px`;
+        cameraContainer.style.top = `${pixels.y}px`;
+        
+        // Create the coverage circle
+        const coverageCircle = document.createElement('div');
+        coverageCircle.className = 'camera-coverage';
+        coverageCircle.style.position = 'absolute';
+        coverageCircle.style.borderRadius = '50%';
+        coverageCircle.style.border = '2px dashed rgba(52, 152, 219, 0.7)';
+        coverageCircle.style.backgroundColor = 'rgba(52, 152, 219, 0.1)';
+        coverageCircle.style.transform = 'translate(-50%, -50%)';
+        coverageCircle.style.zIndex = '210';
+        
+        // Add to map overlay
+        mapOverlay.appendChild(coverageCircle);
+        
+        // Update camera and coverage position on map move
+        map.on('move', () => {
+            updateCameraPosition(cameraContainer, coverageCircle, coordinates, radiusKm);
+        });
+        
+        // Initial position update
+        updateCameraPosition(cameraContainer, coverageCircle, coordinates, radiusKm);
+        
+        // Store the camera marker
+        cameraMarkers.push({
+            container: cameraContainer,
+            coverageCircle: coverageCircle,
+            coordinates: coordinates,
+            id: id,
+            radiusKm: radiusKm
+        });
+    }
+    
+    // Update camera marker and coverage circle position
+    function updateCameraPosition(cameraElement, coverageElement, coordinates, radiusKm) {
+        const pixels = map.project(coordinates);
+        cameraElement.style.left = `${pixels.x}px`;
+        cameraElement.style.top = `${pixels.y}px`;
+        
+        // Calculate radius in pixels
+        // Get map zoom-dependent scale
+        const zoom = map.getZoom();
+        const metersPerPixel = 156543.03392 * Math.cos(coordinates[1] * Math.PI / 180) / Math.pow(2, zoom);
+        const radiusInPixels = (radiusKm * 1000) / metersPerPixel;
+        
+        // Update coverage circle
+        coverageElement.style.width = `${radiusInPixels * 2}px`;
+        coverageElement.style.height = `${radiusInPixels * 2}px`;
+        coverageElement.style.left = `${pixels.x}px`;
+        coverageElement.style.top = `${pixels.y}px`;
+    }
+    
+    // Clear all camera markers and coverage circles
+    function clearCameras() {
+        // Remove camera elements from DOM
+        const cameraElements = mapOverlay.querySelectorAll('.camera-container, .camera-coverage');
+        cameraElements.forEach(element => {
+            if (element.parentNode) {
+                element.parentNode.removeChild(element);
+            }
+        });
+        
+        // Clear the array
+        cameraMarkers = [];
+        camerasAdded = false;
+    }
+    
+    // Reset both boundary and cameras
+    function resetBoundaryAndCameras() {
+        clearBoundary();
+        clearCameras();
+        
+        boundaryDrawingMode = false;
+        drawBoundaryBtn.classList.remove('active');
+        addCamerasBtn.disabled = true;
+        
+        // Reset cursor
+        map.getCanvas().style.cursor = '';
+        
+        // Remove the complete boundary button if it exists
+        const completeBtn = document.getElementById('complete-boundary-btn');
+        if (completeBtn) {
+            completeBtn.remove();
+        }
+    }
+    
+    // Helper functions
+    
+    // Generate a random 4-digit ID (that isn't 3738)
+    function generateRandomId() {
+        let id;
+        do {
+            id = (1000 + Math.floor(Math.random() * 9000)).toString();
+        } while (id === '3738');
+        return id;
+    }
+    
+    // Calculate distance between two points (in degrees)
+    function calculateDistance(point1, point2) {
+        const dx = point1[0] - point2[0];
+        const dy = point1[1] - point2[1];
+        return Math.sqrt(dx * dx + dy * dy);
+    }
+    
+    // Get the min/max bounds of a polygon
+    function getBoundaryBounds(polygon) {
+        let minLng = Infinity;
+        let maxLng = -Infinity;
+        let minLat = Infinity;
+        let maxLat = -Infinity;
+        
+        polygon.forEach(point => {
+            minLng = Math.min(minLng, point[0]);
+            maxLng = Math.max(maxLng, point[0]);
+            minLat = Math.min(minLat, point[1]);
+            maxLat = Math.max(maxLat, point[1]);
+        });
+        
+        return { minLng, maxLng, minLat, maxLat };
+    }
+    
+    // Check if a point is inside a polygon using ray casting algorithm
+    function isPointInPolygon(point, polygon) {
+        const x = point[0];
+        const y = point[1];
+        let inside = false;
+        
+        for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+            const xi = polygon[i][0];
+            const yi = polygon[i][1];
+            const xj = polygon[j][0];
+            const yj = polygon[j][1];
+            
+            const intersect = ((yi > y) !== (yj > y)) && 
+                (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+                
+            if (intersect) inside = !inside;
+        }
+        
+        return inside;
+    }
+
+    // Show a temporary line visualizing the closing connection
+    function showClosingLine(fromPoint, toPoint) {
+        // Remove any existing temporary line
+        const existingLine = mapOverlay.querySelector('.temp-closing-line');
+        if (existingLine) existingLine.remove();
+        
+        // Create a temporary line
+        const tempLine = document.createElement('div');
+        tempLine.className = 'boundary-line temp-closing-line';
+        tempLine.style.position = 'absolute';
+        tempLine.style.zIndex = '189'; // Below other lines
+        tempLine.style.backgroundColor = '#FF9800'; // Orange
+        tempLine.style.opacity = '0.6';
+        tempLine.style.height = '2px';
+        
+        // Add to map overlay
+        mapOverlay.appendChild(tempLine);
+        
+        // Position and style the line
+        updateBoundaryLine(tempLine, fromPoint, toPoint);
     }
 }); 
