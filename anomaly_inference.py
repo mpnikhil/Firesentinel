@@ -1,6 +1,7 @@
 import numpy as np
 import joblib
 import time
+import pandas as pd
 
 class AnomalyDetector:
     def __init__(self, model_path='anomaly_detection_model.joblib', 
@@ -18,8 +19,8 @@ class AnomalyDetector:
                 self.feature_names = joblib.load('feature_names.joblib')
                 print(f"Loaded features: {self.feature_names}")
             except:
-                self.feature_names = None
-                print("Feature names not found, will use order-based inference")
+                self.feature_names = ['temperature', 'humidity', 'pressure', 'gas_oxidising', 'gas_reducing', 'gas_nh3']
+                print(f"Feature names not found, using default: {self.feature_names}")
             
             print("Anomaly detection model loaded successfully")
         except Exception as e:
@@ -35,9 +36,15 @@ class AnomalyDetector:
         # Reshape if it's a single sample
         if len(features.shape) == 1:
             features = features.reshape(1, -1)
+        
+        # If feature_names are available, use pandas DataFrame to maintain feature names
+        if hasattr(self, 'feature_names') and self.feature_names:
+            df = pd.DataFrame(features, columns=self.feature_names)
+            features_scaled = self.scaler.transform(df)
+        else:
+            # Apply scaling using the saved scaler
+            features_scaled = self.scaler.transform(features)
             
-        # Apply scaling using the saved scaler
-        features_scaled = self.scaler.transform(features)
         return features_scaled
     
     def predict(self, features):
