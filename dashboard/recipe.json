@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "layers": {
+    "landfire": {
+      "source": "mapbox://tileset-source/aghatage/landfire-fbfm13",
+      "minzoom": 0,
+      "maxzoom": 15
+    }
+  }
+}
