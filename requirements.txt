@@ -6,6 +6,11 @@ joblib>=1.1.0
 matplotlib>=3.4.0
 # For logging and utilities
 pathlib>=1.0.1
+# For multimodal AI fire detection
+anthropic>=0.15.0
+# For alerts and notifications
+twilio>=8.0.0
+requests>=2.28.1
 
 # Raspberry Pi specific dependencies
 # Only install these when deploying to Raspberry Pi
