@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "layers": {
+    "landfire": {
+      "source": "mapbox://tileset-source/aghatage/landfire-norcal",
+      "minzoom": 0,
+      "maxzoom": 15,
+      "bounds": [-124.5, 37.0, -119.0, 42.0]
+    }
+  }
+}
